@@ -1,0 +1,6 @@
+# we absolutely need to keep the grammar file itself
+~*.g4
+# all the other generated files should not be commited.
+.antlr/
+Msh*
+msh*

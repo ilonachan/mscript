@@ -1,0 +1,60 @@
+scopeName: source.mscript
+patterns:
+  - include: "#comment"
+  - comment: Match identifiers in ALL_CAPS as constants, except when followed by
+      `.`, `(`, `'`, or `"`.
+    match: \b([[:upper:]_][[:upper:][:digit:]_]*)\b(?![\.\(\'\"])
+    name: constant.other.allcaps.mscript
+  - match: \b(?i:(0x\h+))
+    name: constant.numeric.integer.hexadecimal.mscript
+  - match: \b(?i:(0b[01]+))
+    name: constant.numeric.integer.binary.mscript
+  - match: \b(?i:(0[o]?[0-7]+))
+    name: constant.numeric.integer.octal.mscript
+  - match: \b(?i:(\d+\.\d*(e[\-\+]?\d+)?))(?=[^[:alpha:]_])
+    name: constant.numeric.float.mscript
+  - match: (?<=[^[:alnum:]_])(?i:(\.\d+(e[\-\+]?\d+)?))
+    name: constant.numeric.float.mscript
+  - match: \b(?i:(\d+e[\-\+]?\d+))
+    name: constant.numeric.float.mscript
+  - match: \b([1-9]+[0-9]*|0)
+    name: constant.numeric.integer.decimal.mscript
+  - match: \b(none|true|false)\b
+    name: constant.language.mscript
+  
+  - match: \b(global|local|export|const)\b
+    name: storage.modifier.$1.mscript
+  - match: \b(?:(import|from))\b
+    name: keyword.control.import.$1.mscript
+    match: \b(as)\b
+    name: keyword.other.mscript
+
+  - include: "#expression"
+repository:
+
+# control sequences
+  comment:
+    match: (?:^ *|\G *| +)((#).*\n?)
+    captures:
+      '1': {name: comment.line.number-sign.mscript}
+      '2': {name: punctuation.definition.comment.line.mscript}
+
+  expression:
+    patterns:
+    - include: "#letter"
+    - include: "#paren-expression"
+  letter:
+    match: a|b|c
+    name: keyword.letter
+  paren-expression:
+    begin: \(
+    end: \)
+    beginCaptures:
+      "0":
+         name: punctuation.paren.open
+    endCaptures:
+      "0":
+         name: punctuation.paren.close
+    name: expression.group
+    patterns:
+    - include: "#expression"
