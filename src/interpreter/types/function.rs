@@ -1,7 +1,5 @@
 use std::{collections::HashMap, sync::{Arc, RwLock}};
 
-use crate::interpreter::stackmachine::{Statement, StackMachine, VarScope};
-
 use super::{MshValue, string::MshString};
 
 type ArgType = Arc<RwLock<dyn MshValue>>;
@@ -20,15 +18,11 @@ impl MshValue for MshFunction {
         Arc::new(RwLock::new(MshString::from("func")))
     }
 
-    fn dot(&self, identifier: &str) -> Result<Arc<RwLock<dyn MshValue>>, Arc<RwLock<dyn MshValue>>> {
-        todo!()
-    }
-
     fn call(
             &self,
             args: Vec<Arc<RwLock<dyn MshValue>>>,
             kwargs: HashMap<String, Arc<RwLock<dyn MshValue>>>,
-            scope: std::sync::Arc<std::sync::RwLock<crate::interpreter::stackmachine::VarScope>>,
+            scope: Arc<RwLock<VarScope>>,
         ) -> Result<Arc<RwLock<dyn MshValue>>, Arc<RwLock<dyn MshValue>>> {
         StackMachine::exec(&self.instructions, Arc::new(RwLock::new(VarScope::new_local(scope.clone(), false))))
     }

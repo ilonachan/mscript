@@ -1,4 +1,6 @@
-use super::{string::MshString, BinaryOperator, MshValue};
+use crate::interpreter::scopes::AnnotatedField;
+
+use super::{string::MshString, BinaryOperator, MshValue, MshReference};
 use std::{
     fmt::Debug,
     sync::{Arc, RwLock},
@@ -14,39 +16,15 @@ impl MshInt {
     }
 }
 impl MshValue for MshInt {
-    fn objtype(&self) -> Arc<RwLock<dyn MshValue>> {
-        Arc::new(RwLock::new(MshString::from("int")))
+    fn objtype(&self) -> MshReference {
+        MshString::from("int").into()
     }
 
-    fn to_string(&self) -> Result<MshString, Arc<RwLock<dyn MshValue>>> {
-        Ok(MshString::from(self.value.to_string()))
+    fn str_debug(&self) -> Result<MshReference, MshReference> {
+        Ok(MshString::from(self.value.to_string()).into())
     }
 
-    fn dot(
-        &self,
-        _identifier: &str,
-    ) -> Result<Arc<RwLock<dyn MshValue>>, Arc<RwLock<dyn MshValue>>> {
+    fn dot(&self, identifier: &str) -> Result<Option<Arc<RwLock<dyn AnnotatedField>>>, MshReference> {
         todo!()
-    }
-
-    fn binop(
-        &self,
-        other: Arc<RwLock<dyn MshValue>>,
-        operator: BinaryOperator,
-    ) -> Result<Arc<RwLock<dyn MshValue>>, Arc<RwLock<dyn MshValue>>> {
-        match operator {
-            BinaryOperator::And => todo!(),
-            BinaryOperator::Or => todo!(),
-            BinaryOperator::BitAnd => todo!(),
-            BinaryOperator::BitOr => todo!(),
-            BinaryOperator::Xor => todo!(),
-            BinaryOperator::AtOperator => todo!(),
-            BinaryOperator::Pow => todo!(),
-            BinaryOperator::Mul => todo!(),
-            BinaryOperator::Div => todo!(),
-            BinaryOperator::Mod => todo!(),
-            BinaryOperator::Plus => todo!(),
-            BinaryOperator::Minus => todo!(),
-        }
     }
 }

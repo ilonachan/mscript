@@ -4,7 +4,7 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-use super::{string::MshString, MshValue};
+use super::{string::MshString, MshValue, MshReference, msh_value_wrap};
 
 pub trait MshError: MshValue + Error {}
 
@@ -19,6 +19,12 @@ impl MshBaseError {
         }
     }
 }
+impl From<MshBaseError> for MshReference {
+    fn from(o: MshBaseError) -> Self {
+        msh_value_wrap(o)
+    }
+}
+
 impl Display for MshBaseError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.msg)
@@ -26,22 +32,19 @@ impl Display for MshBaseError {
 }
 impl Error for MshBaseError {}
 impl MshValue for MshBaseError {
-    fn objtype(&self) -> Arc<RwLock<dyn MshValue>> {
+    fn objtype(&self) -> MshReference {
         Arc::new(RwLock::new(MshString::from("Error")))
     }
 
-    fn to_string(&self) -> Result<MshString, Arc<RwLock<dyn MshValue>>> {
+    fn str_nice(&self) -> Result<MshReference, MshReference> {
         Ok(MshString::from(format!(
             "{}: {}",
-            self.objtype().read().unwrap().to_ext_string()?,
+            self.objtype().to_string_nice(0)?,
             self.msg
-        )))
+        )).into())
     }
 
-    fn dot(
-        &self,
-        identifier: &str,
-    ) -> Result<Arc<RwLock<dyn MshValue>>, Arc<RwLock<dyn MshValue>>> {
+    fn dot(&self, identifier: &str) -> Result<Option<Arc<RwLock<dyn crate::interpreter::scopes::AnnotatedField>>>, MshReference> {
         todo!()
     }
 }

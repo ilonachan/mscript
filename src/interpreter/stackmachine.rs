@@ -3,7 +3,7 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-use super::{types::{error::MshBaseError, none::MshNoneValue, BinaryOperator, MshValue, string::MshString}};
+use super::{types_dyn::{error::MshBaseError, none::MshNoneValue, BinaryOperator, MshValue, string::MshString}};
 use crate::parser::mshparser::MshParserContext;
 
 #[derive(Debug)]
@@ -302,7 +302,7 @@ impl StackMachine {
 
 #[cfg(test)]
 mod tests {
-    use crate::interpreter::types::int::MshInt;
+    use crate::interpreter::types_dyn::int::MshInt;
 
     use super::*;
     use std::vec;

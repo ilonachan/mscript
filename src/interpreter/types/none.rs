@@ -4,7 +4,9 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-use super::{error::MshBaseError, string::MshString, MshValue};
+use crate::interpreter::scopes::AnnotatedField;
+
+use super::{error::MshBaseError, string::MshString, MshValue, MshReference, msh_value_wrap};
 
 lazy_static! {
     // There is only one `none` value, its reference is shared globally.
@@ -24,20 +26,15 @@ impl Display for MshNoneValue {
     }
 }
 impl MshValue for MshNoneValue {
-    fn objtype(&self) -> Arc<RwLock<dyn MshValue>> {
-        Arc::new(RwLock::new(MshString::from("none")))
+    fn objtype(&self) -> MshReference {
+        msh_value_wrap(MshString::from("none"))
     }
 
-    fn to_string(&self) -> Result<MshString, Arc<RwLock<dyn MshValue>>> {
-        Ok(MshString::from("none".to_owned()))
+    fn str_nice(&self) -> Result<MshReference, MshReference> {
+        Ok(msh_value_wrap(MshString::from("none".to_owned())))
     }
 
-    fn dot(
-        &self,
-        _identifier: &str,
-    ) -> Result<Arc<RwLock<dyn MshValue>>, Arc<RwLock<dyn MshValue>>> {
-        Err(Arc::new(RwLock::new(MshBaseError::new(
-            "cannot access members of `none`",
-        ))))
+    fn dot(&self, identifier: &str) -> Result<Option<Arc<RwLock<dyn AnnotatedField>>>, MshReference> {
+        Err(msh_value_wrap(MshBaseError::new("cannot access members of `none`")))
     }
 }

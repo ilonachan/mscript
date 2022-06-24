@@ -1,55 +1,60 @@
-use std::{
-    collections::HashMap,
-    sync::{Arc, RwLock},
-};
+use std::sync::{Arc, RwLock};
 
-use crate::interpreter::stackmachine::VarScope;
+use crate::interpreter::scopes::AnnotatedField;
 
-use super::{error::MshBaseError, int::MshInt, BinaryOperator, MshValue};
+use super::{msh_value_wrap, MshReference, MshValue};
 
 #[derive(Debug)]
 pub struct MshString {
     content: String,
 }
 impl MshString {
-    pub fn new(content: &str) -> Self {
-        MshString {
-            content: content.to_owned(),
-        }
+    pub fn new(content: String) -> Self {
+        MshString { content }
     }
 }
+impl From<MshString> for MshReference {
+    fn from(o: MshString) -> Self {
+        msh_value_wrap(o)
+    }
+}
+
 impl MshValue for MshString {
-    fn objtype(&self) -> Arc<RwLock<dyn MshValue>> {
-        Arc::new(RwLock::new(MshString::from("str")))
+    fn objtype(&self) -> MshReference {
+        MshString::from("str").into()
     }
 
-    fn to_string(&self) -> Result<MshString, Arc<RwLock<dyn MshValue>>> {
-        Ok(MshString::from(&self.content))
+    fn str_nice(&self) -> Result<MshReference, MshReference> {
+        Ok(MshString::from(&self.content).into())
     }
 
-    fn to_ext_string(&self) -> Result<String, Arc<RwLock<dyn MshValue>>> {
+    fn str_debug(&self) -> Result<MshReference, MshReference> {
+        Ok(MshString::from(format!("'{}'", self.content)).into())
+    }
+
+    fn to_string_nice(&self, _depth: usize) -> Result<String, MshReference> {
         Ok(self.content.to_owned())
     }
-
-    fn dot(
-        &self,
-        identifier: &str,
-    ) -> Result<Arc<RwLock<dyn MshValue>>, Arc<RwLock<dyn MshValue>>> {
-        match identifier {
-            "len" => Ok(Arc::new(RwLock::new(MshInt::new(
-                (self.content.len() as usize).try_into().unwrap(),
-            )))),
-            _ => Err(Arc::new(RwLock::new(MshBaseError::new(&format!(
-                "member not found: `{}`",
-                identifier
-            ))))),
-        }
+    fn to_string_debug(&self, _depth: usize) -> Result<String, MshReference> {
+        Ok(format!("'{}'",self.content))
     }
 
-    fn index(
-        &self,
-        index: Arc<RwLock<dyn MshValue>>,
-    ) -> Result<Arc<RwLock<dyn MshValue>>, Arc<RwLock<dyn MshValue>>> {
+    // fn dot(
+    //     &self,
+    //     identifier: &str,
+    // ) -> Result<Arc<RwLock<dyn MshValue>>, Arc<RwLock<dyn MshValue>>> {
+    //     match identifier {
+    //         "len" => Ok(Arc::new(RwLock::new(MshInt::new(
+    //             (self.content.len() as usize).try_into().unwrap(),
+    //         )))),
+    //         _ => Err(Arc::new(RwLock::new(MshBaseError::new(&format!(
+    //             "member not found: `{}`",
+    //             identifier
+    //         ))))),
+    //     }
+    // }
+
+    fn index(&self, index: MshReference) -> Result<Option<Arc<RwLock<dyn AnnotatedField>>>, MshReference> {
         // TODO: use my own type system instead
         // if index.type_id() == TypeId::of::<MshInt>() {
         //     let index = (index as Box<dyn Any>).downcast::<MshInt>().unwrap();
@@ -60,35 +65,22 @@ impl MshValue for MshString {
         todo!()
     }
 
-    fn binop(
-        &self,
-        other: Arc<RwLock<dyn MshValue>>,
-        operator: BinaryOperator,
-    ) -> Result<Arc<RwLock<dyn MshValue>>, Arc<RwLock<dyn MshValue>>> {
-        todo!()
-    }
-
-    fn call(
-        &self,
-        args: Vec<Arc<RwLock<dyn MshValue>>>,
-        kwargs: HashMap<String, Arc<RwLock<dyn MshValue>>>,
-        scope: Arc<RwLock<VarScope>>,
-    ) -> Result<Arc<RwLock<dyn MshValue>>, Arc<RwLock<dyn MshValue>>> {
+    fn dot(&self, identifier: &str) -> Result<Option<Arc<RwLock<dyn AnnotatedField>>>, MshReference> {
         todo!()
     }
 }
-impl From<&str> for MshString {
-    fn from(c: &str) -> Self {
+impl From<String> for MshString {
+    fn from(c:String) -> Self {
         Self::new(c)
     }
 }
 impl From<&String> for MshString {
     fn from(c: &String) -> Self {
-        Self::new(&c[..])
+        Self::new(c.to_owned())
     }
 }
-impl From<String> for MshString {
-    fn from(c: String) -> Self {
-        Self::from(&c[..])
+impl From<&str> for MshString {
+    fn from(c: &str) -> Self {
+        Self::from(c.to_owned())
     }
 }

@@ -20,7 +20,7 @@ Design principles for general interaction with the shell and file system include
 - Commands are functions, and similar to Python (or even TempleOS) they are invoked with a paren syntax to clearly delineate parameters: instead of `cat test.txt`, one uses `cat("test.txt")`
 - Paths and Globs have first-class support: if something starts with `/` or `./`, it will automatically be treated as a path object. In particular, the above example could be clearer if written as `cat(./test.txt)`. (obviously paths can still be constructed from strings, and sometimes this will be necessary)
 - Files are callable, if they specify an `#!exec` clause (MSH equivalent for the shebang) in their first line (or the shell has been otherwise told how to execute that file type). Much like current shells, `cat` is not a builtin function, but a callable script placed in a location like `/bin/cat`. The shell can detect that this is a binary and execute it.
-- Script files usually have the file ending `.m`, compiled libraries have the ending `.mc`, executables may have the ending `.mx`. All of these are theoretically optional. File paths can't usually omit this file ending, but they can when they are called and there is no ambiguity.
+- Script files usually have the file ending `.m`, compiled libraries have the ending `.mc`, executables may have the ending `.mx`. All of these are theoretically optional. File paths can't usually omit the file ending, but they can when they are called and there is no ambiguity.
 
 Some concerns regarding the type system:
 
@@ -36,7 +36,7 @@ Regarding the structure of script/general files:
 - Comments start with `#`. A space after that is not required, but the characters `#!<` cause side effects. Block comments are also possible: `#< ... >#`.
 - Docstrings can be statically specified for any variable/function, their syntax is `##` or `##< ... >##` respectively.
 - Scripts are executed from top to bottom whenever they are used in any way. There are two ways to "use" a script: by running it directly, or by importing it as a library. Code only to be run in the former case can be placed in a `run {...}` block, code for the latter case belongs in an `export {...}` block.
-- Scripts have their own isolated scope when executed, from which values do not automatically leak. A script can however explicitly `export` a variable: these will be collected and can be imported on demand. When run in the shell itself, this demand need not be specified; in script files this kind of uncontrolled namespace pollution can be disabled using `#!strict import`
+- Scripts have their own isolated scope when executed, from which values do not automatically leak. A script can however explicitly `export` a variable: these will be collected and can be imported on demand (`export`s in an `export`/`run` block will just be passed outside, but the latter will only have any effect if `#!strict import` is not set, i.e. in the user shell). When run in the shell itself, this demand need not be specified; in script files this kind of uncontrolled namespace pollution can be disabled using `#!strict import`
 
 ## Progress
 
@@ -47,7 +47,7 @@ Regarding the structure of script/general files:
   - [ ] Define the type system
 - [ ] Create OS components around the interpreter, including file interface
   - [ ] Connect OS components to mscript with external libraries
-- [ ] **FINAL GOAL:** Integrate the interpreter environment into the Godot Engine for use un a game.
+- [ ] **FINAL GOAL:** Integrate the interpreter environment into the Godot Engine for use in a game.
 
 ## Build Instructions
 It's a `cargo` project, so the usual simplicities apply. I've even done the work of compiling the Antlr4 version with a Rust target for you! If you do wanna build that yourself, you can look at [rrevenantt/antlr4](https://github.com/rrevenantt/antlr4/tree/rust-target) for some pointers; just make sure to change the submodule reference to the latest commit in branch `v0.3` of [rrevenantt/antlr4rust](https://github.com/rrevenantt/antlr4rust/tree/v0.3), because that's the version this project requires.
