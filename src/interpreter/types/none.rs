@@ -1,40 +1,36 @@
 use lazy_static::lazy_static;
 use std::{
-    fmt::Display,
     sync::{Arc, RwLock},
 };
 
-use crate::interpreter::scopes::AnnotatedField;
-
-use super::{error::MshBaseError, string::MshString, MshValue, MshReference, msh_value_wrap};
+use super::{object::{MObject, MObjectImpl}, MTypeImpl, builtin::BUILTINS, MTypeRef, string::MStringImpl, MFuncResult};
 
 lazy_static! {
     // There is only one `none` value, its reference is shared globally.
-    static ref MSH_NONE: Arc<RwLock<MshNoneValue>> = Arc::new(RwLock::new(MshNoneValue {}));
+    static ref MSH_NONE: MNoneRef = Arc::new(RwLock::new(MNone::singleton()));
 }
-/// The language's `none` value is a singleton.
-#[derive(Debug)]
-pub struct MshNoneValue {}
-impl MshNoneValue {
-    pub fn get() -> Arc<RwLock<Self>> {
+
+struct MNone;
+pub type MNoneRef = Arc<RwLock<MNone>>;
+impl MObject for MNone {
+    fn objtype(&self) -> MTypeRef {
+        BUILTINS.get_type("none")
+    }
+    fn str_nice(&self) -> MFuncResult {
+        Ok(MStringImpl::from("none").wrap())
+    }
+}
+
+impl MNone {
+    fn singleton() -> MNone {
+        MObjectImpl::new(BUILTINS.get_type("none"))
+    }
+    pub fn refer() -> MNoneRef {
         MSH_NONE.clone()
     }
 }
-impl Display for MshNoneValue {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "none")
-    }
-}
-impl MshValue for MshNoneValue {
-    fn objtype(&self) -> MshReference {
-        msh_value_wrap(MshString::from("none"))
-    }
 
-    fn str_nice(&self) -> Result<MshReference, MshReference> {
-        Ok(msh_value_wrap(MshString::from("none".to_owned())))
-    }
-
-    fn dot(&self, identifier: &str) -> Result<Option<Arc<RwLock<dyn AnnotatedField>>>, MshReference> {
-        Err(msh_value_wrap(MshBaseError::new("cannot access members of `none`")))
-    }
+pub(super) fn create_none_type() -> MTypeRef {
+    let _type = MTypeImpl::new("none", None, vec![BUILTINS.get_type("obj")]).wrap();
+    _type
 }

@@ -1,10 +1,12 @@
 use std::{
     collections::HashMap,
     mem,
-    sync::{Arc, RwLock},
+    sync::{Arc, RwLock}, num::NonZeroIsize,
 };
 
-use super::types::{string::MshString, MshReference};
+use super::types::{MObjectRef, MFuncResult, string::MStringImpl};
+
+pub type MFieldResult = Result<Option<MObjectRef>, MObjectRef>;
 
 /**
 Representing a field which can be read and assigned a value. These fields
@@ -16,16 +18,72 @@ can be used as a placeholder for *lazy evaluation*. This allows builtin support 
 object member variable assignments, complete with logic guarding them. It's definitely gonna be useful
 for destructuring assignments, if I decide to go down that route.
  */
-pub trait AnnotatedField {
-    fn get_name(&self) -> Option<String>;
-    fn get_docstring(&self) -> Option<String>;
+pub trait Field {
+    fn name(&self) -> String;
+    fn docstring(&self) -> Option<String>;
     fn can_read(&self) -> bool;
     fn can_write(&self) -> bool;
-    fn get_value(&self) -> Result<Option<MshReference>, MshReference>;
-    fn set_value(
-        &mut self,
-        value: Option<MshReference>,
-    ) -> Result<Option<MshReference>, MshReference>;
+    fn get(&self) -> MFieldResult;
+    fn set(&mut self, new_value: Option<MObjectRef>) -> MFieldResult;
+    fn del(&mut self) -> MFieldResult;
+}
+pub type FieldRef = Arc<RwLock<dyn Field>>;
+
+pub struct DynamicField {
+    name: String,
+    docstring: Option<String>,
+    get: Option<dyn Fn() -> MFuncResult>,
+    set: Option<dyn Fn(MObjectRef) -> MFuncResult>,
+    del: Option<dyn Fn() -> MFuncResult>,
+}
+impl DynamicField {
+    pub fn new(
+        name: String,
+        docstring: Option<String>,
+        get: Option<impl Fn() -> MFuncResult>,
+        set: Option<impl Fn(MObjectRef) -> MFuncResult>,
+        del: Option<impl Fn() -> MFuncResult>,
+    ) {
+        DynamicField {
+            name,
+            docstring,
+            get,
+            set,
+            del
+        }
+    }
+}
+impl Field for DynamicField {
+    fn name(&self) -> String {
+        self.name.clone()
+    }
+    fn docstring(&self) -> Option<String> {
+        self.docstring.clone()
+    }
+    fn can_read(&self) -> bool {
+        self.get.is_some()
+    }
+    fn can_write(&self) -> bool {
+        self.set.is_some()
+    }
+    fn get(&self) -> MFieldResult {
+        match self.get {
+            Some(func) => func().map(|v| Some(v)),
+            None => None
+        }
+    }
+    fn set(&mut self, new_value: MObjectRef) -> MFieldResult {
+        match self.set {
+            Some(func) => func(new_value).map(|v| Some(v)),
+            None => None
+        }
+    }
+    fn del(&self) -> MFieldResult {
+        match self.del {
+            Some(func) => func().map(|v| Some(v)),
+            None => None
+        }
+    }
 }
 
 /**
@@ -38,32 +96,32 @@ variables that were declared but not yet assigned, but it also keeps track of so
 TODO: Variables for general values NEED to store the docstring in the annotations, but what about functions?
 I believe it makes sense to add those docstrings both to the annotations AND the function itself.
 */
-pub struct VariableField {
-    name: Option<String>,
-    value: Option<MshReference>,
-    readonly: bool,
+pub struct StaticField {
+    name: String,
     docstring: Option<String>,
+    value: Option<MObjectRef>,
+    readonly: bool
 }
-impl VariableField {
+impl StaticField {
     pub fn new(
         name: Option<String>,
-        value: Option<MshReference>,
-        readonly: bool,
         docstring: Option<String>,
+        value: Option<MObjectRef>,
+        readonly: bool,
     ) -> Self {
-        VariableField {
+        StaticField {
             name,
+            docstring,
             value,
             readonly,
-            docstring,
         }
     }
 }
-impl AnnotatedField for VariableField {
-    fn get_name(&self) -> Option<String> {
+impl Field for StaticField {
+    fn name(&self) -> String {
         self.name.as_ref().map(|o| o.to_owned())
     }
-    fn get_docstring(&self) -> Option<String> {
+    fn docstring(&self) -> Option<String> {
         self.docstring.as_ref().map(|o| o.to_owned())
     }
 
@@ -74,30 +132,36 @@ impl AnnotatedField for VariableField {
         !self.readonly
     }
 
-    fn get_value(&self) -> Result<Option<MshReference>, MshReference> {
+    fn get(&self) -> MFieldResult {
         Ok(self.value.clone())
     }
-    fn set_value(
+    fn set(
         &mut self,
-        value: Option<MshReference>,
-    ) -> Result<Option<MshReference>, MshReference> {
+        value: MObjectRef,
+    ) -> MFieldResult {
         // if the field is readonly, we'll allow setting it for the first time and never again after that.
         if self.readonly && self.value.is_some() {
-            return Err(MshString::from("field is readonly").into());
+            return Err(MStringImpl::from("readonly fields can only be assigned once").wrap());
         }
         Ok(mem::replace(&mut self.value, value))
     }
-}
-impl VariableField {
-    pub fn set_docstring(&mut self, docstr: Option<impl Into<String>>) {
-        self.docstring = docstr.map(|o| o.into());
+    fn del(&mut self) {
+        if self.readonly {
+            return Err(MStringImpl::from("readonly fields cannot be deleted").wrap());
+        }
+        Ok(mem::replace(&mut self.value, None))
     }
 }
+// impl StaticField {
+//     pub fn set_docstring(&mut self, docstr: Option<impl Into<String>>) {
+//         self.docstring = docstr.map(|o| o.into());
+//     }
+// }
 
 /** Describing the different ways a variable can be declared */
 pub enum VarScopeRefType {
     /// The variable is locally declared. The field itself is then present, although a value need not yet be assigned.
-    LocalValue(Arc<RwLock<dyn AnnotatedField>>),
+    LocalValue(FieldRef),
     /// Never actually used: just a marker to signify the field being declared in `get_behavior`
     Local,
     /// The variable explicitly defers to the global scope.
@@ -161,7 +225,7 @@ impl VarScope {
     and `None` even if a variable isn't declared. if raw information about
     the scope is needed, use `get_behavior`, `is_declared` or `has_value` instead.
     */
-    pub fn get(&self, id: &str) -> Option<Arc<RwLock<dyn AnnotatedField>>> {
+    pub fn get(&self, id: &str) -> Option<FieldRef> {
         return match self.variables.get(id) {
             Some(VarScopeRefType::LocalValue(o)) => Some(o.clone()),
             // Propagate is never actually used, but a key not being present implicitly behaves the same way.
@@ -206,7 +270,7 @@ impl VarScope {
     However this only happens if `#!strict assign` isn't set; if it is the function simply returns `false`.
     It returns `true` iff the value was correctly assigned, which is true in every other case.
      */
-    pub fn get_or_declare(&mut self, id: &str) -> Result<Arc<RwLock<dyn AnnotatedField>>, ()> {
+    pub fn get_or_declare(&mut self, id: &str) -> Result<FieldRef, ()> {
         if self.get(id).is_none() && !self.strict_assign {
             self.declare(id, VarScopeRefType::Local);
         }
@@ -221,11 +285,11 @@ impl VarScope {
         match variant {
             VarScopeRefType::Local => self.variables.insert(
                 id.to_owned(),
-                VarScopeRefType::LocalValue(Arc::new(RwLock::new(VariableField::new(
+                VarScopeRefType::LocalValue(Arc::new(RwLock::new(StaticField::new(
                     Some(id.to_owned()),
                     None,
-                    false,
                     None,
+                    false,
                 )))),
             ),
             VarScopeRefType::Propagate => self.variables.remove(id),

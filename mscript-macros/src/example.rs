@@ -84,7 +84,7 @@ fn create_int_type() -> MTypeRef {
         supertypes: vec![types::builtins::get_type("number")],
         proto_dict: HashMap::new(),
         inst_dict: HashMap::new(),
-    };
+    }.wrap();
 
     // initialize the type's own members
 
@@ -165,7 +165,5 @@ fn create_int_type() -> MTypeRef {
         ),
     );
 
-    mtype.wrap()
+    mtype
 }
-
-types::BUILTINS.create_type("int", create_int_type());

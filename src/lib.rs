@@ -3,3 +3,4 @@
 #![feature(if_let_guard)]
 pub mod interpreter;
 pub mod parser;
+mod macros;
